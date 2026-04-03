@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supplier Spend Dashboard — Jan–Apr 2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f3;
+  --bg-tertiary: #eeede8;
+  --text-primary: #1a1a18;
+  --text-secondary: #5f5e5a;
+  --text-tertiary: #888780;
+  --border: rgba(0,0,0,0.12);
+  --border-med: rgba(0,0,0,0.22);
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --green: #1D9E75;
+  --amber: #EF9F27;
+  --red-bg: #FCEBEB; --red-text: #791F1F;
+  --amber-bg: #FAEEDA; --amber-text: #633806;
+  --green-bg: #EAF3DE; --green-text: #27500A;
+  --blue-bg: #E6F1FB; --blue-text: #0C447C;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #1e1e1c;
+    --bg-secondary: #2a2a28;
+    --bg-tertiary: #333331;
+    --text-primary: #f0efe8;
+    --text-secondary: #b4b2a9;
+    --text-tertiary: #888780;
+    --border: rgba(255,255,255,0.12);
+    --border-med: rgba(255,255,255,0.22);
+    --red-bg: #3d1a1a; --red-text: #f09595;
+    --amber-bg: #3d2e0e; --amber-text: #FAC775;
+    --green-bg: #1a2e10; --green-text: #C0DD97;
+    --blue-bg: #0d1e33; --blue-text: #B5D4F4;
+  }
+}
+body {
+  font-family: var(--font);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  padding: 0;
+}
+.page { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+.header { margin-bottom: 1.5rem; }
+.header h1 { font-size: 20px; font-weight: 500; color: var(--text-primary); }
+.header p { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+.filters { display: flex; align-items: center; gap: 10px; margin-bottom: 1.5rem; }
+.filters label { font-size: 13px; color: var(--text-secondary); }
+select {
+  font-size: 13px; padding: 6px 10px;
+  background: var(--bg-primary); color: var(--text-primary);
+  border: 0.5px solid var(--border-med); border-radius: var(--radius-md);
+  cursor: pointer; outline: none;
+}
+select:focus { box-shadow: 0 0 0 2px rgba(29,158,117,0.3); }
+.metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 1.5rem; }
+.metric { background: var(--bg-secondary); border-radius: var(--radius-md); padding: 1rem; }
+.metric-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+.metric-value { font-size: 22px; font-weight: 500; color: var(--text-primary); }
+.metric-sub { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+.section { margin-bottom: 1.5rem; }
+.section-title { font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+.card { background: var(--bg-primary); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; }
+.grid-2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 1rem; }
+.chart-wrap { position: relative; width: 100%; height: 260px; }
+.chart-wrap-tall { position: relative; width: 100%; height: 320px; }
+.alert { font-size: 12px; padding: 8px 12px; border-radius: var(--radius-md); margin-bottom: 10px; line-height: 1.5; }
+.alert-warn { background: var(--amber-bg); color: var(--amber-text); }
+.alert-info { background: var(--blue-bg); color: var(--blue-text); }
+.legend { display: flex; gap: 16px; margin-bottom: 10px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-secondary); }
+.legend-swatch { width: 10px; height: 10px; border-radius: 2px; }
+.supplier-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+.supplier-row:last-child { border-bottom: none; }
+.supplier-name { font-size: 13px; font-weight: 500; color: var(--text-primary); min-width: 175px; flex-shrink: 0; }
+.supplier-type { font-size: 11px; padding: 2px 8px; border-radius: var(--radius-md); flex-shrink: 0; }
+.type-wholesale { background: var(--green-bg); color: var(--green-text); }
+.type-retail { background: var(--amber-bg); color: var(--amber-text); }
+.bar-wrap { flex: 1; background: var(--bg-secondary); border-radius: 3px; height: 8px; }
+.bar-fill { height: 8px; border-radius: 3px; }
+.supplier-amt { font-size: 13px; color: var(--text-primary); min-width: 70px; text-align: right; flex-shrink: 0; }
+.supplier-count { font-size: 11px; color: var(--text-tertiary); min-width: 55px; text-align: right; flex-shrink: 0; }
+.overlap-item { padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+.overlap-item:last-child { border-bottom: none; }
+.overlap-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.overlap-product { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+.overlap-tag { font-size: 11px; padding: 2px 8px; border-radius: var(--radius-md); background: var(--red-bg); color: var(--red-text); white-space: nowrap; flex-shrink: 0; }
+.overlap-sources { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 5px; }
+.source-pill { font-size: 11px; padding: 3px 10px; border-radius: var(--radius-md); border: 0.5px solid var(--border); color: var(--text-secondary); background: var(--bg-secondary); }
+.gap-item { padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+.gap-item:last-child { border-bottom: none; }
+.gap-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+.gap-label { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+.gap-badge { font-size: 11px; padding: 2px 8px; border-radius: var(--radius-md); }
+.gap-note { font-size: 12px; color: var(--text-secondary); line-height: 1.6; }
+.cat-list { font-size: 13px; color: var(--text-secondary); line-height: 2; }
+.cat-list strong { color: var(--text-primary); font-weight: 500; }
+.footer { margin-top: 2.5rem; padding-top: 1rem; border-top: 0.5px solid var(--border); font-size: 12px; color: var(--text-tertiary); }
+@media (max-width: 600px) {
+  .metric-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .grid-2 { grid-template-columns: minmax(0,1fr); }
+  .supplier-name { min-width: 120px; }
+  .page { padding: 1rem; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <h1>Supplier spend dashboard</h1>
+    <p>Community kitchen &mdash; January through April 2026 &mdash; 9 suppliers, all invoice/receipt sources</p>
+  </div>
+
+  <div class="filters">
+    <label for="viewSelect">View:</label>
+    <select id="viewSelect" onchange="switchTab(this.value)">
+      <option value="overview">Overview</option>
+      <option value="suppliers">Suppliers</option>
+      <option value="overlap">Retail vs. wholesale overlap</option>
+      <option value="gaps">Gaps &amp; flags</option>
+      <option value="categories">Spend by category</option>
+    </select>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div id="tab-overview">
+    <div class="metric-grid">
+      <div class="metric"><div class="metric-label">Total spend (all docs)</div><div class="metric-value">$8,647</div><div class="metric-sub">Jan &ndash; Apr 2026</div></div>
+      <div class="metric"><div class="metric-label">Wholesale spend</div><div class="metric-value">$5,899</div><div class="metric-sub">68% of total</div></div>
+      <div class="metric"><div class="metric-label">Retail spend</div><div class="metric-value">$2,748</div><div class="metric-sub">32% of total &mdash; opportunity</div></div>
+      <div class="metric"><div class="metric-label">Suppliers used</div><div class="metric-value">9</div><div class="metric-sub">across 6 categories</div></div>
+    </div>
+    <div class="alert alert-warn">32% of spend is going through retail channels (Berkeley Bowl, Costco, Trader Joe's, US Foods/ChefStore). Many of these items have wholesale equivalents already in the supply chain.</div>
+    <div class="alert alert-info">3 product categories have active overlap &mdash; the same items are being bought from both retail and wholesale suppliers in the same period.</div>
+    <div class="grid-2" style="margin-bottom:1.5rem;">
+      <div class="section">
+        <div class="section-title">Spend by supplier type</div>
+        <div class="card">
+          <div class="legend">
+            <span class="legend-item"><span class="legend-swatch" style="background:#1D9E75;"></span>Wholesale</span>
+            <span class="legend-item"><span class="legend-swatch" style="background:#EF9F27;"></span>Retail</span>
+          </div>
+          <div class="chart-wrap"><canvas id="donutChart"></canvas></div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title">Monthly spend trend</div>
+        <div class="card">
+          <div class="legend">
+            <span class="legend-item"><span class="legend-swatch" style="background:#1D9E75;"></span>Wholesale</span>
+            <span class="legend-item"><span class="legend-swatch" style="background:#EF9F27;"></span>Retail</span>
+          </div>
+          <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUPPLIERS -->
+  <div id="tab-suppliers" style="display:none;">
+    <div class="section">
+      <div class="section-title">All suppliers &mdash; spend &amp; order count</div>
+      <div class="card">
+        <div class="legend" style="margin-bottom:12px;">
+          <span class="legend-item"><span class="legend-swatch" style="background:#1D9E75;"></span>Wholesale</span>
+          <span class="legend-item"><span class="legend-swatch" style="background:#EF9F27;"></span>Retail</span>
+        </div>
+        <div class="chart-wrap-tall" style="margin-bottom:1.25rem;"><canvas id="supplierChart"></canvas></div>
+        <div id="supplier-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OVERLAP -->
+  <div id="tab-overlap" style="display:none;">
+    <div class="alert alert-warn">These items appear in both retail receipts and wholesale invoices within the same period. Consolidating to wholesale could reduce cost and eliminate unnecessary shopping trips.</div>
+    <div class="section" style="margin-top:1rem;">
+      <div class="section-title">Duplicate sourcing &mdash; same item, multiple channels</div>
+      <div class="card" id="overlap-list"></div>
+    </div>
+    <div class="section" style="margin-top:1rem;">
+      <div class="section-title">Retail vs. wholesale split by category</div>
+      <div class="card">
+        <div class="legend">
+          <span class="legend-item"><span class="legend-swatch" style="background:#1D9E75;"></span>Wholesale</span>
+          <span class="legend-item"><span class="legend-swatch" style="background:#EF9F27;"></span>Retail</span>
+        </div>
+        <div class="chart-wrap"><canvas id="splitChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAPS -->
+  <div id="tab-gaps" style="display:none;">
+    <div class="section">
+      <div class="section-title">Flags &amp; data gaps</div>
+      <div class="card" id="gap-list"></div>
+    </div>
+  </div>
+
+  <!-- CATEGORIES -->
+  <div id="tab-categories" style="display:none;">
+    <div class="section">
+      <div class="section-title">Estimated spend by category</div>
+      <div class="card">
+        <div class="legend">
+          <span class="legend-item"><span class="legend-swatch" style="background:#1D9E75;"></span>Wholesale</span>
+          <span class="legend-item"><span class="legend-swatch" style="background:#EF9F27;"></span>Retail</span>
+        </div>
+        <div class="chart-wrap-tall"><canvas id="catChart"></canvas></div>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-top:1rem;">
+      <div class="card">
+        <div class="section-title" style="margin-bottom:8px;">Top wholesale categories</div>
+        <div class="cat-list">
+          <strong>Dairy &amp; eggs</strong> &mdash; $2,196<br>
+          <strong>Produce (Veritable Veg.)</strong> &mdash; $1,974<br>
+          <strong>Dry goods (UNFI)</strong> &mdash; $1,208<br>
+          <strong>Spices/pantry (Milan)</strong> &mdash; $200
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin-bottom:8px;">Top retail categories</div>
+        <div class="cat-list">
+          <strong>Produce (Berkeley Bowl)</strong> &mdash; $1,021<br>
+          <strong>Dairy (Berkeley Bowl)</strong> &mdash; $642<br>
+          <strong>Dry goods (Costco)</strong> &mdash; $576<br>
+          <strong>Misc (ChefStore)</strong> &mdash; $509
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">Generated from 9 supplier invoices/receipts &mdash; Jan&ndash;Apr 2026. Spend figures are estimated from document totals and line items; some invoices are partially legible. See Gaps &amp; flags view for data caveats.</div>
+</div>
+
+<script>
+const suppliers = [
+  { name: 'Dairy Delivery Inc.', type: 'wholesale', spend: 2196, orders: 6 },
+  { name: 'Veritable Vegetable', type: 'wholesale', spend: 1974, orders: 5 },
+  { name: 'Berkeley Bowl', type: 'retail', spend: 1663, orders: 13 },
+  { name: 'UNFI', type: 'wholesale', spend: 1208, orders: 2 },
+  { name: 'Costco', type: 'retail', spend: 576, orders: 2 },
+  { name: 'US Foods / ChefStore', type: 'retail', spend: 509, orders: 6 },
+  { name: 'Milan International', type: 'retail', spend: 436, orders: 4 },
+  { name: "Trader Joe's", type: 'retail', spend: 57, orders: 4 },
+  { name: 'Viks Market', type: 'retail', spend: 28, orders: 1 },
+];
+
+const overlaps = [
+  { product: 'Dairy (milk, half & half, cream)', risk: 'High', sources: ['Dairy Delivery Inc. (wholesale)', 'Berkeley Bowl (retail)', 'Costco (retail)'], note: 'Same Clover products bought retail at Berkeley Bowl multiple times while Dairy Delivery delivers weekly.' },
+  { product: 'Eggs', risk: 'Medium', sources: ['Berkeley Bowl Large Organic Pastured Eggs (retail)', 'Could be sourced via Dairy Delivery or UNFI'], note: 'Eggs purchased retail 6+ times across the period. No wholesale egg supplier present in current invoices.' },
+  { product: 'Berries (raspberries, blueberries, strawberries)', risk: 'High', sources: ['Veritable Vegetable (wholesale)', 'Berkeley Bowl (retail)', "Trader Joe's (retail)"], note: 'Berries appear in both VV invoices and Berkeley Bowl/TJ orders in overlapping weeks.' },
+  { product: 'Tofu (firm)', risk: 'Medium', sources: ['Veritable Vegetable (wholesale)', 'Berkeley Bowl (retail)', 'US Foods/ChefStore (retail)'], note: 'Hodo Soy tofu via VV; also purchased at Berkeley Bowl and ChefStore in same period.' },
+  { product: 'Bread (GF, rye, sourdough)', risk: 'Low', sources: ['Berkeley Bowl (retail)', "Trader Joe's (retail)"], note: 'No wholesale bread supplier currently. Both channels are retail — worth exploring via UNFI.' },
+  { product: 'Spices & pantry staples', risk: 'Medium', sources: ['Milan International (retail)', 'UNFI (wholesale)', 'Costco (retail)'], note: 'Bulk spices at Milan overlap with UNFI pantry items. Potential to consolidate into UNFI orders.' },
+];
+
+const gaps = [
+  { label: 'Dairy Delivery shortages', note: 'Multiple invoices (Jan, Mar) marked "Short" on items including Gruyere, Parmesan, and Lowfat Cottage Cheese. Handwritten credit adjustments indicate amounts were negotiated — but the workflow relies on manual tracking with no documented process.', type: 'reliability' },
+  { label: 'Veritable Vegetable stockouts', note: "Several VV invoices show 0 shipped: Artichoke (Jan), Celery (Feb), Cilantro (Feb), Kale (Feb). Substitutions occurred in some cases (e.g. Tomatero for Driscoll's strawberries). No backup produce supplier is documented.", type: 'reliability' },
+  { label: 'Berkeley Bowl used as produce backup', note: "BB orders spike in weeks when VV has shortages, suggesting it's being used as an ad-hoc fill-in. This is the most expensive way to cover gaps — retail pricing plus staff time to shop.", type: 'cost' },
+  { label: 'No wholesale egg supplier', note: 'Eggs purchased retail at Berkeley Bowl in nearly every order (6+ times). A wholesale option via Dairy Delivery or UNFI could reduce cost significantly over the year.', type: 'opportunity' },
+  { label: 'No wholesale bread supplier', note: 'Gluten-free and rye breads are purchased at Berkeley Bowl and Trader Joe\'s regularly. These are high-frequency items with no wholesale equivalent in current invoices. Worth exploring via UNFI.', type: 'opportunity' },
+  { label: 'UNFI invoice totals incomplete', note: 'The UNFI PDF shows only line-item extensions without a confirmed grand total. Spend estimated at ~$1,208 based on visible line items but cannot be confirmed from the documents provided.', type: 'data gap' },
+  { label: 'Costco receipt partially illegible', note: 'Some line items on the Costco receipt are cut off or unclear. Spend estimated at ~$576 but may be incomplete.', type: 'data gap' },
+  { label: 'Viks Market purchase scope unclear', note: 'Single receipt from Viks for drumsticks and toor dal. Amounts partially cut off. May represent a larger ongoing relationship not captured in these documents.', type: 'data gap' },
+  { label: 'Milan International: retail prices for bulk spices', note: 'Milan is a specialty import store, not a wholesale distributor. Cumin seeds (5 lbs, $29.99), cardamom ($54.99), red label tea ($31.98) — some items may be available cheaper via UNFI or a direct importer.', type: 'cost' },
+];
+
+const typeColors = {
+  reliability: { bg: 'var(--red-bg)', text: 'var(--red-text)' },
+  cost: { bg: 'var(--amber-bg)', text: 'var(--amber-text)' },
+  opportunity: { bg: 'var(--green-bg)', text: 'var(--green-text)' },
+  'data gap': { bg: 'var(--blue-bg)', text: 'var(--blue-text)' }
+};
+
+let chartsBuilt = {};
+
+function switchTab(val) {
+  ['overview','suppliers','overlap','gaps','categories'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = (t === val) ? '' : 'none';
+  });
+  if (val === 'suppliers' && !chartsBuilt.suppliers) buildSupplierTab();
+  if (val === 'overlap' && !chartsBuilt.overlap) buildOverlapTab();
+  if (val === 'gaps' && !chartsBuilt.gaps) buildGapsTab();
+  if (val === 'categories' && !chartsBuilt.categories) buildCatTab();
+}
+
+function buildSupplierTab() {
+  chartsBuilt.suppliers = true;
+  const maxSpend = Math.max(...suppliers.map(s => s.spend));
+  document.getElementById('supplier-list').innerHTML = suppliers.map(s => `
+    <div class="supplier-row">
+      <div class="supplier-name">${s.name}</div>
+      <span class="supplier-type type-${s.type}">${s.type}</span>
+      <div class="bar-wrap"><div class="bar-fill" style="width:${Math.round(s.spend/maxSpend*100)}%;background:${s.type==='wholesale'?'#1D9E75':'#EF9F27'};"></div></div>
+      <div class="supplier-amt">$${s.spend.toLocaleString()}</div>
+      <div class="supplier-count">${s.orders} order${s.orders!==1?'s':''}</div>
+    </div>`).join('');
+
+  new Chart(document.getElementById('supplierChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: suppliers.map(s => s.name),
+      datasets: [{ label: 'Spend ($)', data: suppliers.map(s => s.spend), backgroundColor: suppliers.map(s => s.type==='wholesale'?'#1D9E75':'#EF9F27'), borderRadius: 4 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { callback: v => '$'+v.toLocaleString(), font: { size: 11 } } },
+        x: { ticks: { autoSkip: false, maxRotation: 35, font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function buildOverlapTab() {
+  chartsBuilt.overlap = true;
+  document.getElementById('overlap-list').innerHTML = overlaps.map(o => `
+    <div class="overlap-item">
+      <div class="overlap-header">
+        <span class="overlap-product">${o.product}</span>
+        <span class="overlap-tag">Overlap &mdash; ${o.risk} priority</span>
+      </div>
+      <div class="overlap-sources">${o.sources.map(s => `<span class="source-pill">${s}</span>`).join('')}</div>
+      <div style="font-size:12px;color:var(--text-secondary);line-height:1.6;">${o.note}</div>
+    </div>`).join('');
+
+  new Chart(document.getElementById('splitChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: ['Dairy', 'Produce', 'Dry goods', 'Bread/bakery', 'Spices/pantry', 'Other'],
+      datasets: [
+        { label: 'Wholesale', data: [2196, 1974, 1208, 0, 200, 321], backgroundColor: '#1D9E75', borderRadius: 4 },
+        { label: 'Retail', data: [642, 1021, 576, 62, 236, 211], backgroundColor: '#EF9F27', borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 11 } } },
+        y: { ticks: { callback: v => '$'+v.toLocaleString(), font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function buildGapsTab() {
+  chartsBuilt.gaps = true;
+  document.getElementById('gap-list').innerHTML = gaps.map(g => `
+    <div class="gap-item">
+      <div class="gap-header">
+        <span class="gap-label">${g.label}</span>
+        <span class="gap-badge" style="background:${typeColors[g.type].bg};color:${typeColors[g.type].text};">${g.type}</span>
+      </div>
+      <div class="gap-note">${g.note}</div>
+    </div>`).join('');
+}
+
+function buildCatTab() {
+  chartsBuilt.categories = true;
+  new Chart(document.getElementById('catChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: ['Dairy & eggs', 'Produce', 'Dry goods/pantry', 'Spices/imports', 'Bread/bakery', 'Kitchen supplies', 'Beverages', 'Other'],
+      datasets: [
+        { label: 'Wholesale', data: [2196, 1974, 1208, 200, 0, 0, 85, 236], backgroundColor: '#1D9E75', borderRadius: 4 },
+        { label: 'Retail', data: [702, 1021, 576, 436, 62, 130, 57, 28], backgroundColor: '#EF9F27', borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 11 }, maxRotation: 30, autoSkip: false } },
+        y: { ticks: { callback: v => '$'+v.toLocaleString(), font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+// Build overview charts on load
+new Chart(document.getElementById('donutChart').getContext('2d'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Wholesale', 'Retail'],
+    datasets: [{ data: [5899, 2748], backgroundColor: ['#1D9E75','#EF9F27'], borderWidth: 0 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ' $'+ctx.parsed.toLocaleString()+' ('+Math.round(ctx.parsed/(5899+2748)*100)+'%)' } }
+    },
+    cutout: '65%'
+  }
+});
+
+new Chart(document.getElementById('trendChart').getContext('2d'), {
+  type: 'bar',
+  data: {
+    labels: ['Jan 2026', 'Feb 2026', 'Mar 2026', 'Apr 2026'],
+    datasets: [
+      { label: 'Wholesale', data: [881, 1841, 2392, 785], backgroundColor: '#1D9E75', borderRadius: 4 },
+      { label: 'Retail', data: [715, 945, 809, 279], backgroundColor: '#EF9F27', borderRadius: 4 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { font: { size: 11 } } },
+      y: { ticks: { callback: v => '$'+v.toLocaleString(), font: { size: 11 } } }
+    }
+  }
+});
+</script>
+</body>
+</html>
